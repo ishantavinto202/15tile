@@ -49,6 +49,6 @@ const styles = StyleSheet.create({
   innerClip: {
     borderRadius: BORDER_RADIUS - 8,
     overflow: 'hidden',
-    backgroundColor: '#111827',
+    backgroundColor: '#111625',
   },
 });

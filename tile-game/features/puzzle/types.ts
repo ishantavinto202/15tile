@@ -10,13 +10,13 @@ export interface GameModeConfig {
 export const GAME_MODES: Record<GameModeKey, GameModeConfig> = {
   normal: {
     key: 'normal',
-    title: 'Normal Mode',
+    title: '8 Tiles',
     description: '3x3 grid (8 tiles)',
     gridSize: 3,
   },
   advanced: {
     key: 'advanced',
-    title: 'Advanced Mode',
+    title: '15 Tiles',
     description: '4x4 grid (15 tiles)',
     gridSize: 4,
   },

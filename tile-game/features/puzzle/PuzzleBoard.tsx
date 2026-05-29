@@ -54,9 +54,11 @@ const PuzzleBoardComponent = ({
 
 export const PuzzleBoard = memo(PuzzleBoardComponent);
 
+const BOARD_BACKGROUND = '#111625';
+
 const styles = StyleSheet.create({
   board: {
     position: 'relative',
-    backgroundColor: '#000000',
+    backgroundColor: BOARD_BACKGROUND,
   },
 });

@@ -1,16 +1,24 @@
-import { Link, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
+import { useHeaderHeight } from '@react-navigation/elements';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { BoardFrame, getBoardInnerSize } from '@/features/puzzle/BoardFrame';
 import { PuzzleBoard } from '@/features/puzzle/PuzzleBoard';
 import { usePuzzleTileImages } from '@/features/puzzle/usePuzzleTileImages';
 import { DEFAULT_MODE, GAME_MODES, type GameModeKey } from '@/features/puzzle/types';
+import { calculatePuzzleScore } from '@/features/puzzle/scoring';
+import { formatElapsed, useElapsedTimer } from '@/features/puzzle/useElapsedTimer';
 import { usePuzzleGame } from '@/features/puzzle/usePuzzleGame';
 
 const PUZZLE_IMAGE = require('../assets/PinkFloyd.png');
+
+/** Top padding, mode title, stats row, and spacing below stats (original layout). */
+const TOP_HEADER_CHROME = 18 + 36 + 8 + 22 + 20;
+/** Score summary, shuffle button, and bottom padding. */
+const FOOTER_CHROME = 88 + 14 + 14 + 18 + 18;
 
 const getModeFromParam = (modeParam?: string): GameModeKey => {
   if (modeParam === 'advanced') {
@@ -24,10 +32,30 @@ const getModeFromParam = (modeParam?: string): GameModeKey => {
 
 export default function GameScreen() {
   const { width, height } = useWindowDimensions();
+  const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ mode?: string }>();
   const mode = getModeFromParam(params.mode);
   const config = GAME_MODES[mode];
+  const [shuffleGeneration, setShuffleGeneration] = useState(0);
   const { board, moves, onShuffle, onTilePress, won } = usePuzzleGame({ gridSize: config.gridSize });
+  const { formatted: elapsed, seconds: elapsedSeconds } = useElapsedTimer({
+    paused: won,
+    resetKey: `${mode}-${config.gridSize}-${shuffleGeneration}`,
+  });
+
+  const completionScore = useMemo(() => {
+    if (!won) {
+      return null;
+    }
+
+    return calculatePuzzleScore(mode, elapsedSeconds, moves);
+  }, [elapsedSeconds, mode, moves, won]);
+
+  const handleShuffle = () => {
+    onShuffle();
+    setShuffleGeneration((generation) => generation + 1);
+  };
   const { tileSources, loading: tileImagesLoading } = usePuzzleTileImages(
     PUZZLE_IMAGE,
     config.gridSize,
@@ -36,9 +64,15 @@ export default function GameScreen() {
   const frameSize = useMemo(() => {
     const horizontalPadding = 20 * 2;
     const availableWidth = width - horizontalPadding;
-    const availableHeight = height * 0.58;
-    return Math.max(220, Math.min(availableWidth, availableHeight));
-  }, [height, width]);
+    const maxBoardHeight =
+      height -
+      headerHeight -
+      insets.bottom -
+      TOP_HEADER_CHROME -
+      FOOTER_CHROME;
+    const availableHeight = Math.max(220, maxBoardHeight);
+    return Math.min(availableWidth, availableHeight);
+  }, [headerHeight, height, insets.bottom, width]);
 
   const boardSize = getBoardInnerSize(frameSize);
 
@@ -59,38 +93,44 @@ export default function GameScreen() {
         }}
       />
       <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
-      <View style={styles.wrapper}>
-        <Text style={styles.modeName}>{config.title}</Text>
-        <Text style={styles.meta}>
-          {config.gridSize}x{config.gridSize} • Moves: {moves}
-        </Text>
+        <View style={styles.wrapper}>
+          <View style={styles.headerSection}>
+            <Text style={styles.modeName}>{config.title}</Text>
+            <Text style={styles.meta}>
+              {config.gridSize}x{config.gridSize} • Moves: {moves} • Time: {elapsed}
+            </Text>
+          </View>
 
-        <View style={styles.boardShell}>
-          <BoardFrame size={frameSize}>
-            <PuzzleBoard
-              board={board}
-              gridSize={config.gridSize}
-              onTilePress={onTilePress}
-              size={boardSize}
-              tileImagesLoading={tileImagesLoading}
-              tileSources={tileSources}
-            />
-          </BoardFrame>
-        </View>
+          <View style={styles.boardCenter}>
+            <View style={styles.boardShell}>
+              <BoardFrame size={frameSize}>
+                <PuzzleBoard
+                  board={board}
+                  gridSize={config.gridSize}
+                  onTilePress={onTilePress}
+                  size={boardSize}
+                  tileImagesLoading={tileImagesLoading}
+                  tileSources={tileSources}
+                />
+              </BoardFrame>
+            </View>
+          </View>
 
-        {won ? <Text style={styles.winText}>Solved! Nice work.</Text> : <Text style={styles.winText}> </Text>}
-
-        <View style={styles.actions}>
-          <Pressable onPress={onShuffle} style={styles.actionButton}>
-            <Text style={styles.actionText}>Shuffle</Text>
-          </Pressable>
-          <Link asChild href="/">
-            <Pressable style={styles.secondaryButton}>
-              <Text style={styles.secondaryText}>Change Mode</Text>
+          <View style={styles.footer}>
+            {completionScore ? (
+              <View style={styles.scoreSummary}>
+                <Text style={styles.scoreLine}>Score: {completionScore.score}</Text>
+                <Text style={styles.scoreLine}>Time: {formatElapsed(completionScore.timeSeconds)}</Text>
+                <Text style={styles.scoreLine}>Moves: {completionScore.moves}</Text>
+              </View>
+            ) : (
+              <View style={styles.scorePlaceholder} />
+            )}
+            <Pressable onPress={handleShuffle} style={styles.actionButton}>
+              <Text style={styles.actionText}>Shuffle</Text>
             </Pressable>
-          </Link>
+          </View>
         </View>
-      </View>
       </SafeAreaView>
     </>
   );
@@ -103,10 +143,17 @@ const styles = StyleSheet.create({
   },
   wrapper: {
     flex: 1,
-    alignItems: 'center',
     paddingHorizontal: 20,
+  },
+  headerSection: {
+    alignItems: 'center',
     paddingTop: 18,
-    paddingBottom: 14,
+  },
+  boardCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
   },
   modeName: {
     color: '#f8fafc',
@@ -124,18 +171,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  winText: {
-    color: '#22c55e',
-    marginTop: 20,
-    minHeight: 24,
-    fontWeight: '700',
-    fontSize: 18,
-  },
-  actions: {
-    marginTop: 'auto',
+  footer: {
     width: '100%',
-    gap: 12,
+    maxWidth: 340,
+    alignSelf: 'center',
     paddingBottom: 18,
+    gap: 14,
+  },
+  scoreSummary: {
+    minHeight: 88,
+    justifyContent: 'center',
+    gap: 4,
+  },
+  scoreLine: {
+    color: '#22c55e',
+    fontWeight: '700',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  scorePlaceholder: {
+    minHeight: 88,
   },
   actionButton: {
     backgroundColor: '#1d4ed8',
@@ -147,18 +202,5 @@ const styles = StyleSheet.create({
     color: '#eff6ff',
     fontWeight: '700',
     fontSize: 16,
-  },
-  secondaryButton: {
-    backgroundColor: '#111827',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  secondaryText: {
-    color: '#cbd5e1',
-    fontWeight: '600',
-    fontSize: 15,
   },
 });

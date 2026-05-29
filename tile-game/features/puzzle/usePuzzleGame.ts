@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { canMoveTile, isSolved, moveTile, shuffleBoard } from '@/features/puzzle/utils';
 
@@ -17,8 +17,19 @@ interface UsePuzzleGameResult {
 export const usePuzzleGame = ({ gridSize }: UsePuzzleGameOptions): UsePuzzleGameResult => {
   const [board, setBoard] = useState<number[]>(() => shuffleBoard(gridSize));
   const [moves, setMoves] = useState(0);
+  const isInitialGridSize = useRef(true);
 
   const won = useMemo(() => isSolved(board, gridSize), [board, gridSize]);
+
+  useEffect(() => {
+    if (isInitialGridSize.current) {
+      isInitialGridSize.current = false;
+      return;
+    }
+
+    setBoard(shuffleBoard(gridSize));
+    setMoves(0);
+  }, [gridSize]);
 
   const onTilePress = useCallback(
     (tile: number) => {
