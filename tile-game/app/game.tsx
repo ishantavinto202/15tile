@@ -21,6 +21,7 @@ import { useElapsedTimer } from '@/features/puzzle/useElapsedTimer';
 import { usePuzzleTileImages } from '@/features/puzzle/usePuzzleTileImages';
 import { usePuzzleGame } from '@/features/puzzle/usePuzzleGame';
 import { DEFAULT_MODE, GAME_MODES, type GameModeKey } from '@/features/puzzle/types';
+import { PUZZLE_COMPLETE_NAVIGATION_DELAY_MS } from '@/features/puzzle/completionCelebration';
 import { calculateProgressPercent } from '@/features/puzzle/utils';
 
 /** Top padding, mode title, stats row, and spacing below stats (original layout). */
@@ -51,6 +52,15 @@ export default function GameScreen() {
   const [timeUp, setTimeUp] = useState(false);
   const isFirstGameFocus = useRef(true);
   const hasNavigatedToComplete = useRef(false);
+  const completeNavigationRef = useRef({
+    mode,
+    timerModeEnabled,
+    moves: 0,
+    timeSecondsForScore: 0,
+    remainingSeconds: 0,
+    elapsedSeconds: 0,
+    puzzleImage,
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -88,6 +98,16 @@ export default function GameScreen() {
     ? countdownTimer.elapsedSeconds
     : elapsedTimer.seconds;
 
+  completeNavigationRef.current = {
+    mode,
+    timerModeEnabled,
+    moves,
+    timeSecondsForScore,
+    remainingSeconds: countdownTimer.remainingSeconds,
+    elapsedSeconds: elapsedTimer.seconds,
+    puzzleImage,
+  };
+
   const progressPercent = useMemo(
     () => calculateProgressPercent(board, config.gridSize),
     [board, config.gridSize],
@@ -124,34 +144,38 @@ export default function GameScreen() {
       return;
     }
 
-    hasNavigatedToComplete.current = true;
+    const timeoutId = setTimeout(() => {
+      if (hasNavigatedToComplete.current) {
+        return;
+      }
 
-    const result = calculatePuzzleScore(mode, timeSecondsForScore, moves);
-    const preservedTimeSeconds = timerModeEnabled
-      ? countdownTimer.remainingSeconds
-      : elapsedTimer.seconds;
+      hasNavigatedToComplete.current = true;
 
-    router.replace({
-      pathname: '/complete',
-      params: {
-        mode,
-        timerMode: timerModeParam(timerModeEnabled),
-        score: String(result.score),
-        moves: String(moves),
-        timeSeconds: String(preservedTimeSeconds),
-        albumCoverIndex: String(getAlbumCoverIndex(puzzleImage)),
-      },
-    } as unknown as Href);
-  }, [
-    won,
-    mode,
-    moves,
-    timeSecondsForScore,
-    timerModeEnabled,
-    countdownTimer.remainingSeconds,
-    elapsedTimer.seconds,
-    puzzleImage,
-  ]);
+      const snapshot = completeNavigationRef.current;
+      const result = calculatePuzzleScore(
+        snapshot.mode,
+        snapshot.timeSecondsForScore,
+        snapshot.moves,
+      );
+      const preservedTimeSeconds = snapshot.timerModeEnabled
+        ? snapshot.remainingSeconds
+        : snapshot.elapsedSeconds;
+
+      router.replace({
+        pathname: '/complete',
+        params: {
+          mode: snapshot.mode,
+          timerMode: timerModeParam(snapshot.timerModeEnabled),
+          score: String(result.score),
+          moves: String(snapshot.moves),
+          timeSeconds: String(preservedTimeSeconds),
+          albumCoverIndex: String(getAlbumCoverIndex(snapshot.puzzleImage)),
+        },
+      } as unknown as Href);
+    }, PUZZLE_COMPLETE_NAVIGATION_DELAY_MS);
+
+    return () => clearTimeout(timeoutId);
+  }, [won]);
 
   const { tileSources, loading: tileImagesLoading } = usePuzzleTileImages(
     puzzleImage,
@@ -205,7 +229,7 @@ export default function GameScreen() {
 
           <View style={styles.boardCenter}>
             <View style={styles.boardShell}>
-              <BoardFrame size={frameSize}>
+              <BoardFrame celebrating={won} size={frameSize}>
                 <PuzzleBoard
                   board={board}
                   gridSize={config.gridSize}

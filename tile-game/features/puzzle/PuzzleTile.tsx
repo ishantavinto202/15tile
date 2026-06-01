@@ -3,6 +3,7 @@ import type { ImageSourcePropType } from 'react-native';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
+import { TILE_MOVE_DURATION_MS } from '@/features/puzzle/completionCelebration';
 import { toRomanNumeral } from '@/features/puzzle/utils';
 
 interface PuzzleTileProps {
@@ -15,7 +16,7 @@ interface PuzzleTileProps {
   onPress: (value: number) => void;
 }
 
-const ANIMATION_DURATION = 180;
+const ANIMATION_DURATION = TILE_MOVE_DURATION_MS;
 const BADGE_SIZE = 24;
 const BADGE_TEXT_BOX = 18;
 
