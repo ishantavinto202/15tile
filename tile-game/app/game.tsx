@@ -1,19 +1,27 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { useHeaderHeight } from '@react-navigation/elements';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { type Href, router, Stack, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
+import { getAlbumCoverIndex, pickRandomAlbumCover } from '@/features/puzzle/albumCovers';
 import { BoardFrame, getBoardInnerSize } from '@/features/puzzle/BoardFrame';
+import { TimeUpPanel } from '@/features/puzzle/components/TimeUpPanel';
 import { PuzzleBoard } from '@/features/puzzle/PuzzleBoard';
-import { usePuzzleTileImages } from '@/features/puzzle/usePuzzleTileImages';
-import { DEFAULT_MODE, GAME_MODES, type GameModeKey } from '@/features/puzzle/types';
+import {
+  parseTimerModeParam,
+  TIMER_MODE_DURATIONS,
+  timerModeParam,
+} from '@/features/puzzle/modifiers/timerMode';
 import { calculatePuzzleScore } from '@/features/puzzle/scoring';
-import { formatElapsed, useElapsedTimer } from '@/features/puzzle/useElapsedTimer';
+import { useCountdownTimer } from '@/features/puzzle/useCountdownTimer';
+import { useElapsedTimer } from '@/features/puzzle/useElapsedTimer';
+import { usePuzzleTileImages } from '@/features/puzzle/usePuzzleTileImages';
 import { usePuzzleGame } from '@/features/puzzle/usePuzzleGame';
-
-const PUZZLE_IMAGE = require('../assets/PinkFloyd.png');
+import { DEFAULT_MODE, GAME_MODES, type GameModeKey } from '@/features/puzzle/types';
+import { calculateProgressPercent } from '@/features/puzzle/utils';
 
 /** Top padding, mode title, stats row, and spacing below stats (original layout). */
 const TOP_HEADER_CHROME = 18 + 36 + 8 + 22 + 20;
@@ -34,30 +42,119 @@ export default function GameScreen() {
   const { width, height } = useWindowDimensions();
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ mode?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; timerMode?: string }>();
   const mode = getModeFromParam(params.mode);
+  const timerModeEnabled = parseTimerModeParam(params.timerMode);
   const config = GAME_MODES[mode];
+  const [puzzleImage, setPuzzleImage] = useState(pickRandomAlbumCover);
   const [shuffleGeneration, setShuffleGeneration] = useState(0);
+  const [timeUp, setTimeUp] = useState(false);
+  const isFirstGameFocus = useRef(true);
+  const hasNavigatedToComplete = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstGameFocus.current) {
+        isFirstGameFocus.current = false;
+        return;
+      }
+
+      setPuzzleImage((current) => pickRandomAlbumCover(current));
+    }, []),
+  );
+  const timerResetKey = `${mode}-${config.gridSize}-${shuffleGeneration}`;
+
   const { board, moves, onShuffle, onTilePress, won } = usePuzzleGame({ gridSize: config.gridSize });
-  const { formatted: elapsed, seconds: elapsedSeconds } = useElapsedTimer({
-    paused: won,
-    resetKey: `${mode}-${config.gridSize}-${shuffleGeneration}`,
+
+  const handleTimeExpired = useCallback(() => {
+    setTimeUp(true);
+  }, []);
+
+  const elapsedTimer = useElapsedTimer({
+    paused: timerModeEnabled || won || timeUp,
+    resetKey: timerResetKey,
   });
 
-  const completionScore = useMemo(() => {
-    if (!won) {
-      return null;
-    }
+  const countdownDuration = TIMER_MODE_DURATIONS[mode];
+  const countdownTimer = useCountdownTimer({
+    durationSeconds: countdownDuration,
+    paused: !timerModeEnabled || won || timeUp,
+    resetKey: timerResetKey,
+    onExpire: handleTimeExpired,
+  });
 
-    return calculatePuzzleScore(mode, elapsedSeconds, moves);
-  }, [elapsedSeconds, mode, moves, won]);
+  const gameLocked = won || timeUp;
+  const timeSecondsForScore = timerModeEnabled
+    ? countdownTimer.elapsedSeconds
+    : elapsedTimer.seconds;
+
+  const progressPercent = useMemo(
+    () => calculateProgressPercent(board, config.gridSize),
+    [board, config.gridSize],
+  );
+
+  const handleTilePress = useCallback(
+    (tile: number) => {
+      if (gameLocked) {
+        return;
+      }
+      onTilePress(tile);
+    },
+    [gameLocked, onTilePress],
+  );
 
   const handleShuffle = () => {
     onShuffle();
+    setPuzzleImage((current) => pickRandomAlbumCover(current));
     setShuffleGeneration((generation) => generation + 1);
+    setTimeUp(false);
   };
+
+  const handleRetry = () => {
+    handleShuffle();
+  };
+
+  useEffect(() => {
+    if (!won) {
+      hasNavigatedToComplete.current = false;
+      return;
+    }
+
+    if (hasNavigatedToComplete.current) {
+      return;
+    }
+
+    hasNavigatedToComplete.current = true;
+
+    const result = calculatePuzzleScore(mode, timeSecondsForScore, moves);
+    const preservedTimeSeconds = timerModeEnabled
+      ? countdownTimer.remainingSeconds
+      : elapsedTimer.seconds;
+
+    router.replace({
+      pathname: '/complete',
+      params: {
+        mode,
+        timerMode: timerModeParam(timerModeEnabled),
+        score: String(result.score),
+        moves: String(moves),
+        timeSeconds: String(preservedTimeSeconds),
+        albumCoverIndex: String(getAlbumCoverIndex(puzzleImage)),
+      },
+    } as unknown as Href);
+  }, [
+    won,
+    mode,
+    moves,
+    timeSecondsForScore,
+    timerModeEnabled,
+    countdownTimer.remainingSeconds,
+    elapsedTimer.seconds,
+    puzzleImage,
+  ]);
+
   const { tileSources, loading: tileImagesLoading } = usePuzzleTileImages(
-    PUZZLE_IMAGE,
+    puzzleImage,
     config.gridSize,
   );
 
@@ -75,6 +172,8 @@ export default function GameScreen() {
   }, [headerHeight, height, insets.bottom, width]);
 
   const boardSize = getBoardInnerSize(frameSize);
+  const timeLabel = timerModeEnabled ? 'Time Left' : 'Time';
+  const timeDisplay = timerModeEnabled ? countdownTimer.formatted : elapsedTimer.formatted;
 
   return (
     <>
@@ -95,9 +194,12 @@ export default function GameScreen() {
       <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.container}>
         <View style={styles.wrapper}>
           <View style={styles.headerSection}>
-            <Text style={styles.modeName}>{config.title}</Text>
+            <Text style={styles.modeName}>
+              {config.title}
+              {timerModeEnabled ? ' • Timer' : ''}
+            </Text>
             <Text style={styles.meta}>
-              {config.gridSize}x{config.gridSize} • Moves: {moves} • Time: {elapsed}
+              {config.gridSize}x{config.gridSize} • Moves: {moves} • {timeLabel}: {timeDisplay}
             </Text>
           </View>
 
@@ -107,7 +209,7 @@ export default function GameScreen() {
                 <PuzzleBoard
                   board={board}
                   gridSize={config.gridSize}
-                  onTilePress={onTilePress}
+                  onTilePress={handleTilePress}
                   size={boardSize}
                   tileImagesLoading={tileImagesLoading}
                   tileSources={tileSources}
@@ -117,18 +219,16 @@ export default function GameScreen() {
           </View>
 
           <View style={styles.footer}>
-            {completionScore ? (
-              <View style={styles.scoreSummary}>
-                <Text style={styles.scoreLine}>Score: {completionScore.score}</Text>
-                <Text style={styles.scoreLine}>Time: {formatElapsed(completionScore.timeSeconds)}</Text>
-                <Text style={styles.scoreLine}>Moves: {completionScore.moves}</Text>
-              </View>
+            {timeUp ? (
+              <TimeUpPanel moves={moves} onRetry={handleRetry} progressPercent={progressPercent} />
             ) : (
               <View style={styles.scorePlaceholder} />
             )}
-            <Pressable onPress={handleShuffle} style={styles.actionButton}>
-              <Text style={styles.actionText}>Shuffle</Text>
-            </Pressable>
+            {!timeUp ? (
+              <Pressable disabled={won} onPress={handleShuffle} style={[styles.actionButton, won && styles.actionButtonDisabled]}>
+                <Text style={styles.actionText}>Shuffle</Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </SafeAreaView>
@@ -197,6 +297,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
+  },
+  actionButtonDisabled: {
+    opacity: 0.45,
   },
   actionText: {
     color: '#eff6ff',

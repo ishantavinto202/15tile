@@ -89,6 +89,19 @@ export const shuffleBoard = (gridSize: number): number[] => {
 export const isSolved = (tiles: number[], gridSize: number): boolean =>
   areBoardsEqual(tiles, createSolvedBoard(gridSize));
 
+export const calculateProgressPercent = (tiles: number[], gridSize: number): number => {
+  const solved = createSolvedBoard(gridSize);
+  let correct = 0;
+
+  for (let index = 0; index < tiles.length; index += 1) {
+    if (tiles[index] === solved[index]) {
+      correct += 1;
+    }
+  }
+
+  return Math.round((correct / tiles.length) * 100);
+};
+
 export const canMoveTile = (
   board: number[],
   tile: number,
