@@ -4,7 +4,6 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { TILE_MOVE_DURATION_MS } from '@/features/puzzle/completionCelebration';
-import { toRomanNumeral } from '@/features/puzzle/utils';
 
 interface PuzzleTileProps {
   value: number;
@@ -65,7 +64,7 @@ const PuzzleTileComponent = ({
             numberOfLines={1}
             style={styles.number}
           >
-            {toRomanNumeral(value)}
+            {value}
           </Text>
         </View>
       </Pressable>

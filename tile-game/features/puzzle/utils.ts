@@ -1,32 +1,5 @@
 const EMPTY_TILE = 0;
 
-const ROMAN_NUMERALS = [
-  '',
-  'I',
-  'II',
-  'III',
-  'IV',
-  'V',
-  'VI',
-  'VII',
-  'VIII',
-  'IX',
-  'X',
-  'XI',
-  'XII',
-  'XIII',
-  'XIV',
-  'XV',
-] as const;
-
-export const toRomanNumeral = (value: number): string => {
-  if (value >= 1 && value < ROMAN_NUMERALS.length) {
-    return ROMAN_NUMERALS[value];
-  }
-
-  return String(value);
-};
-
 export const createSolvedBoard = (gridSize: number): number[] => {
   const last = gridSize * gridSize;
   return Array.from({ length: last }, (_, index) =>

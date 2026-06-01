@@ -123,15 +123,19 @@ export default function GameScreen() {
     [gameLocked, onTilePress],
   );
 
-  const handleShuffle = () => {
+  const restartPuzzle = () => {
     onShuffle();
-    setPuzzleImage((current) => pickRandomAlbumCover(current));
     setShuffleGeneration((generation) => generation + 1);
     setTimeUp(false);
   };
 
+  const handleShuffle = () => {
+    restartPuzzle();
+    setPuzzleImage((current) => pickRandomAlbumCover(current));
+  };
+
   const handleRetry = () => {
-    handleShuffle();
+    restartPuzzle();
   };
 
   useEffect(() => {

@@ -9,7 +9,7 @@ import { timerModeParam } from '@/features/puzzle/modifiers/timerMode';
 import { useTimerModePreference } from '@/features/puzzle/modifiers/useTimerModePreference';
 import { DEFAULT_MODE, type GameModeKey } from '@/features/puzzle/types';
 
-const TITLE_HEIGHT = 214;
+const TITLE_HEIGHT = 193;
 /** Subtitle + mode buttons + timer toggle block height from the original centered home layout. */
 const ORIGINAL_MODE_BLOCK_HEIGHT = 8 + 16 + 28 + 16 + 58 + 16 + 58 + 16 + 52;
 const ORIGINAL_GROUP_HEIGHT = TITLE_HEIGHT + ORIGINAL_MODE_BLOCK_HEIGHT;
@@ -39,7 +39,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={[styles.titleContainer, { paddingTop: titleTopOffset }]}>
-          <Image resizeMode="contain" source={require('../../../assets/Title2.png')} style={styles.titleImage} />
+          <Image resizeMode="contain" source={require('../../../assets/Title3.png')} style={styles.titleImage} />
         </View>
 
         <View style={[styles.modeContainer, { paddingTop: modeSectionPaddingTop }]}>
@@ -83,8 +83,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   titleImage: {
-    width: 403,
-    height: 214,
+    width: 363,
+    height: 193,
     alignSelf: 'center',
   },
   modeSelection: {
