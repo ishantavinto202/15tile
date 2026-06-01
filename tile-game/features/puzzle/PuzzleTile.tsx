@@ -3,6 +3,8 @@ import type { ImageSourcePropType } from 'react-native';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
+import { toRomanNumeral } from '@/features/puzzle/utils';
+
 interface PuzzleTileProps {
   value: number;
   row: number;
@@ -14,6 +16,8 @@ interface PuzzleTileProps {
 }
 
 const ANIMATION_DURATION = 180;
+const BADGE_SIZE = 24;
+const BADGE_TEXT_BOX = 18;
 
 const PuzzleTileComponent = ({
   value,
@@ -54,7 +58,14 @@ const PuzzleTileComponent = ({
           <View style={styles.tileFallback} />
         )}
         <View style={styles.numberBadge}>
-          <Text style={styles.number}>{value}</Text>
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.45}
+            numberOfLines={1}
+            style={styles.number}
+          >
+            {toRomanNumeral(value)}
+          </Text>
         </View>
       </Pressable>
     </Animated.View>
@@ -92,16 +103,23 @@ const styles = StyleSheet.create({
   },
   numberBadge: {
     margin: 6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: BADGE_SIZE,
+    height: BADGE_SIZE,
+    borderRadius: BADGE_SIZE / 2,
     backgroundColor: '#d1d5db',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   number: {
+    width: BADGE_TEXT_BOX,
+    height: BADGE_TEXT_BOX,
     color: '#000000',
     fontWeight: '700',
     fontSize: 11,
+    lineHeight: BADGE_TEXT_BOX,
+    textAlign: 'center',
+    letterSpacing: -0.4,
+    includeFontPadding: false,
   },
 });
