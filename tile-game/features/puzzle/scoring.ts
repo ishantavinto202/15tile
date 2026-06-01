@@ -1,37 +1,42 @@
+import { TIMER_MODE_DURATIONS } from '@/features/puzzle/modifiers/timerMode';
 import type { GameModeKey } from '@/features/puzzle/types';
 
-export const SCORE_TIERS: Record<GameModeKey, readonly [number, number, number, number]> = {
-  normal: [100, 75, 50, 25],
-  advanced: [500, 375, 250, 125],
+export const SCORE_INCREMENT = 25;
+export const SCORE_MIN = 25;
+
+/** Highest base score from completion speed (Timer Mode). */
+const SCORE_MAX: Record<GameModeKey, number> = {
+  normal: 200,
+  advanced: 400,
 };
 
-/** Seconds at or below = 100% time performance. */
-const TIME_EXCELLENT: Record<GameModeKey, number> = {
-  normal: 60,
-  advanced: 180,
+/** Maximum bonus points from remaining time (Timer Mode). */
+const REMAINING_TIME_BONUS_MAX: Record<GameModeKey, number> = {
+  normal: 100,
+  advanced: 200,
 };
 
-/** Seconds at or above = 0% time performance. */
-const TIME_POOR: Record<GameModeKey, number> = {
-  normal: 240,
-  advanced: 600,
-};
-
-/** Moves at or below = 100% move efficiency. */
+/** Moves at or below = 100% move efficiency (Normal Mode). */
 const MOVES_EXCELLENT: Record<GameModeKey, number> = {
   normal: 25,
   advanced: 60,
 };
 
-/** Moves at or above = 0% move efficiency. */
+/** Moves at or above = 0% move efficiency (Normal Mode). */
 const MOVES_POOR: Record<GameModeKey, number> = {
   normal: 70,
   advanced: 200,
 };
 
+/** Seconds at or below = 100% speed (Timer Mode base score). */
+const TIME_EXCELLENT: Record<GameModeKey, number> = {
+  normal: 20,
+  advanced: 60,
+};
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-/** Linear 0–100 score: better values (lower time/moves) score higher. */
+/** Linear 0–100: lower time/moves score higher. */
 const performancePercent = (value: number, excellent: number, poor: number): number => {
   if (value <= excellent) {
     return 100;
@@ -44,9 +49,53 @@ const performancePercent = (value: number, excellent: number, poor: number): num
   return clamp(progress * 100, 0, 100);
 };
 
+const roundToScoreIncrement = (rawScore: number, maxScore: number): number => {
+  const rounded = Math.round(rawScore / SCORE_INCREMENT) * SCORE_INCREMENT;
+  return clamp(rounded, SCORE_MIN, maxScore);
+};
+
+const rawPerformanceScore = (performance: number, maxScore: number): number =>
+  SCORE_MIN + (performance / 100) * (maxScore - SCORE_MIN);
+
+const getTimerModeScoreCap = (mode: GameModeKey): number =>
+  SCORE_MAX[mode] + REMAINING_TIME_BONUS_MAX[mode];
+
+const calculateMoveBasedScore = (mode: GameModeKey, moves: number): number => {
+  const performance = performancePercent(moves, MOVES_EXCELLENT[mode], MOVES_POOR[mode]);
+  const rawScore = rawPerformanceScore(performance, SCORE_MAX[mode]);
+  return roundToScoreIncrement(rawScore, SCORE_MAX[mode]);
+};
+
+const calculateTimerModeScores = (
+  mode: GameModeKey,
+  elapsedSeconds: number,
+  remainingSeconds: number,
+): { baseScore: number; bonusScore: number; totalScore: number } => {
+  const duration = TIMER_MODE_DURATIONS[mode];
+  const speedPerformance = performancePercent(
+    elapsedSeconds,
+    TIME_EXCELLENT[mode],
+    duration,
+  );
+  const baseRaw = rawPerformanceScore(speedPerformance, SCORE_MAX[mode]);
+  const baseScore = roundToScoreIncrement(baseRaw, SCORE_MAX[mode]);
+
+  const bonusRaw =
+    remainingSeconds > 0
+      ? (clamp(remainingSeconds, 0, duration) / duration) * REMAINING_TIME_BONUS_MAX[mode]
+      : 0;
+  const bonusScore = roundToScoreIncrement(bonusRaw, REMAINING_TIME_BONUS_MAX[mode]);
+
+  const totalScore = clamp(baseScore + bonusScore, SCORE_MIN, getTimerModeScoreCap(mode));
+
+  return { baseScore, bonusScore, totalScore };
+};
+
 export interface PuzzleScoreResult {
+  /** Base score (speed in Timer Mode, final score in Normal Mode). */
   score: number;
-  tier: 'excellent' | 'great' | 'good' | 'completed';
+  bonusScore: number;
+  totalScore: number;
   timeSeconds: number;
   moves: number;
 }
@@ -55,33 +104,31 @@ export const calculatePuzzleScore = (
   mode: GameModeKey,
   timeSeconds: number,
   moves: number,
+  timerModeEnabled: boolean,
+  remainingSeconds = 0,
 ): PuzzleScoreResult => {
-  const timePerformance = performancePercent(
-    timeSeconds,
-    TIME_EXCELLENT[mode],
-    TIME_POOR[mode],
-  );
-  const moveEfficiency = performancePercent(moves, MOVES_EXCELLENT[mode], MOVES_POOR[mode]);
-  const combined = timePerformance * 0.7 + moveEfficiency * 0.3;
+  if (timerModeEnabled) {
+    const { baseScore, bonusScore, totalScore } = calculateTimerModeScores(
+      mode,
+      timeSeconds,
+      remainingSeconds,
+    );
 
-  const [excellent, great, good, completed] = SCORE_TIERS[mode];
-  let score = completed;
-  let tier: PuzzleScoreResult['tier'] = 'completed';
-
-  if (combined >= 85) {
-    score = excellent;
-    tier = 'excellent';
-  } else if (combined >= 65) {
-    score = great;
-    tier = 'great';
-  } else if (combined >= 40) {
-    score = good;
-    tier = 'good';
+    return {
+      score: baseScore,
+      bonusScore,
+      totalScore,
+      timeSeconds,
+      moves,
+    };
   }
+
+  const score = calculateMoveBasedScore(mode, moves);
 
   return {
     score,
-    tier,
+    bonusScore: 0,
+    totalScore: score,
     timeSeconds,
     moves,
   };

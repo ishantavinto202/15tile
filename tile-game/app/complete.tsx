@@ -16,10 +16,10 @@ const PAGE_PADDING_VERTICAL = 12;
 const TITLE_BLOCK_HEIGHT = 46;
 const STAT_LINE_HEIGHT = 22;
 const STAT_GAP = 6;
-const STAT_COUNT = 3;
+const NORMAL_MODE_STAT_COUNT = 3;
+const TIMER_MODE_STAT_COUNT = 5;
 const ACTION_BUTTON_HEIGHT = 44;
 const ACTION_GAP = 10;
-/** Fixed gaps inside the completion content stack (title → art → stats). */
 const CONTENT_STACK_GAP = 8;
 const CONTENT_TO_ACTIONS_GAP = 16;
 const FRAME_SIZE_SCALE = 1.25;
@@ -42,12 +42,12 @@ const parseNumberParam = (value?: string): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const useCompleteFrameSize = () => {
+const useCompleteFrameSize = (statCount: number) => {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
   return useMemo(() => {
-    const statsHeight = STAT_COUNT * STAT_LINE_HEIGHT + (STAT_COUNT - 1) * STAT_GAP;
+    const statsHeight = statCount * STAT_LINE_HEIGHT + (statCount - 1) * STAT_GAP;
     const actionsHeight = ACTION_BUTTON_HEIGHT * 3 + ACTION_GAP * 2;
     const contentStackGaps = CONTENT_STACK_GAP * 2;
 
@@ -68,7 +68,7 @@ const useCompleteFrameSize = () => {
       MIN_FRAME_SIZE,
       Math.min(maxFrameByWidth, maxFrameByHeight, MAX_FRAME_SIZE),
     );
-  }, [height, insets.bottom, insets.top, width]);
+  }, [height, insets.bottom, insets.top, statCount, width]);
 };
 
 export default function PuzzleCompleteScreen() {
@@ -76,6 +76,8 @@ export default function PuzzleCompleteScreen() {
     mode?: string;
     timerMode?: string;
     score?: string;
+    bonusScore?: string;
+    totalScore?: string;
     moves?: string;
     timeSeconds?: string;
     albumCoverIndex?: string;
@@ -83,20 +85,28 @@ export default function PuzzleCompleteScreen() {
 
   const mode = getModeFromParam(params.mode);
   const timerModeEnabled = parseTimerModeParam(params.timerMode);
-  const score = parseNumberParam(params.score);
+  const baseScore = parseNumberParam(params.score);
+  const bonusScore = parseNumberParam(params.bonusScore);
+  const totalScore = parseNumberParam(params.totalScore) || baseScore;
   const moves = parseNumberParam(params.moves);
   const timeSeconds = parseNumberParam(params.timeSeconds);
   const albumCover = getAlbumCoverByIndex(parseNumberParam(params.albumCoverIndex));
-  const frameSize = useCompleteFrameSize();
+  const statCount = timerModeEnabled ? TIMER_MODE_STAT_COUNT : NORMAL_MODE_STAT_COUNT;
+  const frameSize = useCompleteFrameSize(statCount);
 
-  const timeLabel = timerModeEnabled ? 'Remaining Time' : 'Time Elapsed';
   const formattedTime = formatElapsed(timeSeconds);
   const modeTitle = GAME_MODES[mode].title;
 
   const shareResult = async () => {
-    const timeLine = `${timeLabel}: ${formattedTime}`;
+    if (timerModeEnabled) {
+      await Share.share({
+        message: `Puzzle complete on ${modeTitle}! Score: ${baseScore}. Bonus Score: ${bonusScore}. Total Score: ${totalScore}. Remaining Time: ${formattedTime}. Total Moves: ${moves}.`,
+      });
+      return;
+    }
+
     await Share.share({
-      message: `Puzzle complete on ${modeTitle}! Score: ${score}. Total Moves: ${moves}. ${timeLine}`,
+      message: `Puzzle complete on ${modeTitle}! Score: ${baseScore}. Time Elapsed: ${formattedTime}. Total Moves: ${moves}.`,
     });
   };
 
@@ -121,11 +131,21 @@ export default function PuzzleCompleteScreen() {
             <AlbumCoverFrame imageSource={albumCover} size={frameSize} />
 
             <View style={styles.stats}>
-              <Text style={styles.statLine}>Score: {score}</Text>
-              <Text style={styles.statLine}>
-                {timeLabel}: {formattedTime}
-              </Text>
-              <Text style={styles.statLine}>Total Moves: {moves}</Text>
+              {timerModeEnabled ? (
+                <>
+                  <Text style={styles.statLine}>Score: {baseScore}</Text>
+                  <Text style={styles.statLine}>Bonus Score: {bonusScore}</Text>
+                  <Text style={styles.statLine}>Total Score: {totalScore}</Text>
+                  <Text style={styles.statLine}>Remaining Time: {formattedTime}</Text>
+                  <Text style={styles.statLine}>Total Moves: {moves}</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.statLine}>Score: {baseScore}</Text>
+                  <Text style={styles.statLine}>Time Elapsed: {formattedTime}</Text>
+                  <Text style={styles.statLine}>Total Moves: {moves}</Text>
+                </>
+              )}
             </View>
           </View>
 

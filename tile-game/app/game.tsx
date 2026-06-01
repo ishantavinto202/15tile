@@ -160,6 +160,8 @@ export default function GameScreen() {
         snapshot.mode,
         snapshot.timeSecondsForScore,
         snapshot.moves,
+        snapshot.timerModeEnabled,
+        snapshot.remainingSeconds,
       );
       const preservedTimeSeconds = snapshot.timerModeEnabled
         ? snapshot.remainingSeconds
@@ -171,6 +173,8 @@ export default function GameScreen() {
           mode: snapshot.mode,
           timerMode: timerModeParam(snapshot.timerModeEnabled),
           score: String(result.score),
+          bonusScore: String(result.bonusScore),
+          totalScore: String(result.totalScore),
           moves: String(snapshot.moves),
           timeSeconds: String(preservedTimeSeconds),
           albumCoverIndex: String(getAlbumCoverIndex(snapshot.puzzleImage)),
