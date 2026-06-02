@@ -16,7 +16,7 @@ import {
 } from '@/features/puzzle/completionCelebration';
 import { PuzzleCompletionCelebration } from '@/features/puzzle/components/PuzzleCompletionCelebration';
 
-const VOXEL_FRAME = require('../../assets/VOXEL_FRAME.png');
+const VOXEL_FRAME = require('../../assets/VOXEL_FRAME_2.png');
 
 /** Source art dimensions (1:1). */
 export const VOXEL_FRAME_ART_SIZE = 1007;
