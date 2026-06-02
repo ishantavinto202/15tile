@@ -11,21 +11,27 @@ import { parseTimerModeParam } from '@/features/puzzle/modifiers/timerMode';
 import { formatElapsed } from '@/features/puzzle/useElapsedTimer';
 import { DEFAULT_MODE, GAME_MODES, type GameModeKey } from '@/features/puzzle/types';
 
-const HORIZONTAL_PADDING = 40;
-const PAGE_PADDING_VERTICAL = 12;
-const TITLE_BLOCK_HEIGHT = 46;
-const STAT_LINE_HEIGHT = 22;
-const STAT_GAP = 6;
+const SCREEN_BACKGROUND = '#000000';
+const TEXT_PRIMARY = '#FFFFFF';
+const BUTTON_SECONDARY = '#2A2A2E';
+
+const HORIZONTAL_PADDING = 48;
+const SCREEN_PADDING_TOP = 16;
+const SCREEN_PADDING_BOTTOM = 20;
+const TITLE_BLOCK_HEIGHT = 54;
+const STAT_LINE_HEIGHT = 24;
+const STAT_GAP = 10;
 const NORMAL_MODE_STAT_COUNT = 3;
 const TIMER_MODE_STAT_COUNT = 5;
-const ACTION_BUTTON_HEIGHT = 44;
-const ACTION_GAP = 10;
-const CONTENT_STACK_GAP = 8;
-const CONTENT_TO_ACTIONS_GAP = 16;
+const ACTION_BUTTON_HEIGHT = 52;
+const ACTION_GAP = 12;
+const GAP_TITLE_TO_ARTWORK = 28;
+const GAP_STATS_TO_ACTIONS = 32;
 const FRAME_SIZE_SCALE = 1.25;
 const BASE_MAX_FRAME_SIZE = 268;
 const MAX_FRAME_SIZE = Math.round(BASE_MAX_FRAME_SIZE * FRAME_SIZE_SCALE);
 const MIN_FRAME_SIZE = Math.round(148 * FRAME_SIZE_SCALE);
+const BUTTON_MAX_WIDTH = 340;
 
 const getModeFromParam = (modeParam?: string): GameModeKey => {
   if (modeParam === 'advanced') {
@@ -49,16 +55,16 @@ const useCompleteFrameSize = (statCount: number) => {
   return useMemo(() => {
     const statsHeight = statCount * STAT_LINE_HEIGHT + (statCount - 1) * STAT_GAP;
     const actionsHeight = ACTION_BUTTON_HEIGHT * 3 + ACTION_GAP * 2;
-    const contentStackGaps = CONTENT_STACK_GAP * 2;
 
     const reservedHeight =
       insets.top +
       insets.bottom +
-      PAGE_PADDING_VERTICAL * 2 +
+      SCREEN_PADDING_TOP +
+      SCREEN_PADDING_BOTTOM +
       TITLE_BLOCK_HEIGHT +
+      GAP_TITLE_TO_ARTWORK +
       statsHeight +
-      contentStackGaps +
-      CONTENT_TO_ACTIONS_GAP +
+      GAP_STATS_TO_ACTIONS +
       actionsHeight;
 
     const maxFrameByHeight = height - reservedHeight;
@@ -120,16 +126,18 @@ export default function PuzzleCompleteScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={styles.container}>
         <View style={styles.screen}>
-          <View style={styles.topSpacer} />
-
-          <View style={styles.completionContent}>
+          <View style={styles.hero}>
             <View style={styles.titleBlock}>
               <Text style={styles.heading}>Puzzle Complete!</Text>
-              <Text style={styles.subheading}>You solved the {modeTitle} challenge</Text>
+              <Text style={styles.subheading}>You solved the {modeTitle} Challenge</Text>
             </View>
 
-            <AlbumCoverFrame imageSource={albumCover} size={frameSize} />
+            <View style={styles.artworkWrap}>
+              <AlbumCoverFrame imageSource={albumCover} size={frameSize} />
+            </View>
+          </View>
 
+          <View style={styles.lower}>
             <View style={styles.stats}>
               {timerModeEnabled ? (
                 <>
@@ -147,26 +155,24 @@ export default function PuzzleCompleteScreen() {
                 </>
               )}
             </View>
-          </View>
 
-          <View style={styles.actions}>
-            <Pressable onPress={() => void shareResult()} style={styles.shareButton}>
-              <Text style={styles.shareButtonText}>Share</Text>
-            </Pressable>
-            <Pressable onPress={returnToHome} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Play Again</Text>
-            </Pressable>
-            <Pressable
-              disabled
-              style={[styles.secondaryButton, styles.secondaryButtonDisabled]}
-            >
-              <Text style={[styles.secondaryButtonText, styles.secondaryButtonTextDisabled]}>
-                Exit
-              </Text>
-            </Pressable>
+            <View style={styles.actions}>
+              <Pressable onPress={() => void shareResult()} style={styles.secondaryButton}>
+                <Text style={styles.secondaryButtonText}>Share</Text>
+              </Pressable>
+              <Pressable onPress={returnToHome} style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>Play</Text>
+              </Pressable>
+              <Pressable
+                disabled
+                style={[styles.secondaryButton, styles.secondaryButtonDisabled]}
+              >
+                <Text style={[styles.secondaryButtonText, styles.secondaryButtonTextDisabled]}>
+                  Exit
+                </Text>
+              </Pressable>
+            </View>
           </View>
-
-          <View style={styles.bottomSpacer} />
         </View>
       </SafeAreaView>
     </>
@@ -176,109 +182,96 @@ export default function PuzzleCompleteScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: SCREEN_BACKGROUND,
   },
   screen: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: PAGE_PADDING_VERTICAL,
-    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: SCREEN_PADDING_TOP,
+    paddingBottom: SCREEN_PADDING_BOTTOM,
+    justifyContent: 'space-between',
   },
-  topSpacer: {
-    flex: 1,
-    width: '100%',
-  },
-  completionContent: {
+  hero: {
     alignItems: 'center',
     width: '100%',
-    maxWidth: 340,
-    gap: CONTENT_STACK_GAP,
+    flexShrink: 1,
+  },
+  lower: {
+    width: '100%',
+    alignItems: 'center',
     flexShrink: 0,
   },
   titleBlock: {
     alignItems: 'center',
     width: '100%',
+    maxWidth: BUTTON_MAX_WIDTH,
   },
   heading: {
-    color: '#f8fafc',
-    fontSize: 26,
+    color: TEXT_PRIMARY,
+    fontSize: 30,
     fontWeight: '800',
     textAlign: 'center',
+    letterSpacing: -0.3,
   },
   subheading: {
-    color: '#94a3b8',
-    fontSize: 14,
+    color: TEXT_PRIMARY,
+    fontSize: 16,
+    fontWeight: '400',
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 6,
+  },
+  artworkWrap: {
+    marginTop: GAP_TITLE_TO_ARTWORK,
+    alignItems: 'center',
   },
   stats: {
     width: '100%',
+    maxWidth: BUTTON_MAX_WIDTH,
     gap: STAT_GAP,
     alignItems: 'center',
+    marginBottom: GAP_STATS_TO_ACTIONS,
   },
   statLine: {
-    color: '#3f1cec',
+    color: TEXT_PRIMARY,
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '400',
     textAlign: 'center',
     lineHeight: STAT_LINE_HEIGHT,
     width: '100%',
   },
   actions: {
     width: '100%',
-    maxWidth: 340,
+    maxWidth: BUTTON_MAX_WIDTH,
     gap: ACTION_GAP,
-    marginTop: CONTENT_TO_ACTIONS_GAP,
-    flexShrink: 0,
   },
-  bottomSpacer: {
-    flex: 1,
-    width: '100%',
-  },
-  shareButton: {
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
+  secondaryButton: {
+    backgroundColor: BUTTON_SECONDARY,
+    borderRadius: 12,
     height: ACTION_BUTTON_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
   },
-  shareButtonText: {
-    color: '#e2e8f0',
-    fontWeight: '700',
-    fontSize: 16,
+  secondaryButtonDisabled: {
+    opacity: 0.5,
+  },
+  secondaryButtonText: {
+    color: TEXT_PRIMARY,
+    fontWeight: '600',
+    fontSize: 17,
+  },
+  secondaryButtonTextDisabled: {
+    color: '#A3A3A3',
   },
   primaryButton: {
     backgroundColor: BRAND_PRIMARY,
-    borderRadius: 14,
+    borderRadius: 12,
     height: ACTION_BUTTON_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButtonText: {
-    color: '#ffffff',
-    fontWeight: '800',
-    fontSize: 16,
-  },
-  secondaryButton: {
-    backgroundColor: '#0f172a',
-    borderRadius: 14,
-    height: ACTION_BUTTON_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-  secondaryButtonDisabled: {
-    opacity: 0.45,
-  },
-  secondaryButtonText: {
-    color: '#cbd5e1',
+    color: TEXT_PRIMARY,
     fontWeight: '700',
-    fontSize: 16,
-  },
-  secondaryButtonTextDisabled: {
-    color: '#64748b',
+    fontSize: 17,
   },
 });
